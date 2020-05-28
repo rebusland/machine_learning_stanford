@@ -64,11 +64,7 @@ Theta2_grad = zeros(size(Theta2));
 
 % represent the y vector, observed outcomes a m x K matrix, each row is a vector [0 .. 1 .. 0], where
 % the index of element 1 represent the class (index 0 is for the label 10)
-components = [];
-for k = 1:num_labels
-	components = [components (y==k)];
-end
-y = components;
+y = ([1:num_labels] == y);
 
 % add bias column to X
 X = [ones(m,1) X];
@@ -85,51 +81,53 @@ for idx = 1 : length(network_matrices)
 	deltas_accum{idx} = zeros(size(network_matrices{idx}));
 end
 
-% initialize accumulator for overall cost value
-cost = 0;
 
-% for each sample in the training set
-for i = 1 : m
-	% values at activation nodes: i-th element refers to activation nodes in the i-th layer
-	A = {};
-	A{1} = X(i, :)'; % first activation nodes are the inputs (transpose it so to get a vertical vector)
+% value of cost function for each training sample
+costs = zeros(m,1);
 
-	% 
-	% Forward propagation
-	%
-	% move through the layers
-	for j = 1 : num_layers - 1
-		z = cell2mat(network_matrices(j)) * A{j};
-		A{j+1} = 1 ./ (1 + exp(-z));
-		if j + 1 != num_layers
-			A{j+1} = [1; A{j+1}]; % add bias node
-		end
+% activation nodes matrices: the i-th element of the cell array should be a matrix
+% of the i-th activation layer for each training sample.
+A = {};
+
+% first activation nodes are the inputs
+% transpose it so that each column is an input sample (we have thus 1..m columns) 
+A{1} = X'; % n x m matrix (m training sample, n number of input features: e.g. pixel grey-scale)
+
+% 
+% Forward propagation
+%
+% move through the layers
+for j = 1 : num_layers - 1
+	z = cell2mat(network_matrices(j)) * A{j};
+	A{j+1} = 1 ./ (1 + exp(-z));
+	if j + 1 != num_layers
+		A{j+1} = [ones(1,columns(A{j+1})); A{j+1}]; % add bias nodes
 	end
+end
 
-	% compute cost function term for this training sample
-	cost += -y(i, :) * log(A{num_layers}) -(1 - y(i, :)) * log(1 - A{num_layers});
+% compute cost function term for each training sample
+% the sum(..,2) is for making row * column multiplication on the two matrices and get a column vector
+costs = sum(-y .* log(A{num_layers})' -(1 - y) .* log(1 - A{num_layers})', 2);
 
-	%
-	% Back-propagation
-	%
-	% deltas in each layer
-	deltas = {};
+%
+% Back-propagation
+%
+% deltas in each layer
+deltas = {};
 
-	L = num_layers;
+L = num_layers;
 
-	% difference (outcome - predicted) at the output node
-	deltas{L} = A{L} - y(i, :)'; % NB y row is transposed to get a vertical vector like [0; ..1; ..;0]
+% difference (outcome - predicted) at the output node
+deltas{L} = A{L} - y'; % NB y row is transposed to get vertical vectors like [0; ..1; ..;0] for each training sample
 
-	% add a ficticious "bias" delta to make the below code to work even for the output layer
-	deltas{L} = [1;deltas{L}];
-	
-	% go backward (up to the first hidden node)
-	while L > 1
-		deltas{L - 1} = (network_matrices{L - 1})' * deltas{L}(2:end) .* A{L - 1} .* (1 - A{L - 1});
-		deltas_accum{L - 1} += deltas{L}(2:end) * (A{L - 1})'; % NB the delta_0 component is discarded as it refers to the bias node
-		L -= 1;
-	end
+% add ficticious "bias" to delta to make the below code to work even for the output layer
+deltas{L} = [ones(1,columns(deltas{L})); deltas{L}];
 
+% go backward (up to the first hidden node)
+while L > 1
+	deltas{L - 1} = (network_matrices{L - 1})' * deltas{L}(2:end, :) .* A{L - 1} .* (1 - A{L - 1});
+	deltas_accum{L - 1} += deltas{L}(2:end, :) * (A{L - 1})'; % NB the delta_0 component is discarded as it refers to the bias node
+	L -= 1;
 end
 
 regularization_term = 0;
@@ -139,7 +137,8 @@ for kk = 1 : length(network_matrices)
 	regularization_term += sum(sum(matr .^ 2));
 end
 
-J = (cost / m) + (0.5 * lambda / m) * regularization_term;
+overall_cost = sum(costs);
+J = (overall_cost / m) + (0.5 * lambda / m) * regularization_term;
 
 
 % -------------------------------------------------------------
