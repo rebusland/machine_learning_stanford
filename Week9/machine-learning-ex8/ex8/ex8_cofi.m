@@ -128,22 +128,49 @@ my_ratings = zeros(1682, 1);
 
 % Check the file movie_idx.txt for id of each movie in our dataset
 % For example, Toy Story (1995) has ID 1, so to rate it "4", you can set
-my_ratings(1) = 4;
+% my_ratings(1) = 4;
 
 % Or suppose did not enjoy Silence of the Lambs (1991), you can set
-my_ratings(98) = 2;
+% my_ratings(98) = 2;
 
 % We have selected a few movies we liked / did not like and the ratings we
 % gave are as follows:
-my_ratings(7) = 3;
-my_ratings(12)= 5;
-my_ratings(54) = 4;
-my_ratings(64)= 5;
-my_ratings(66)= 3;
-my_ratings(69) = 5;
-my_ratings(183) = 4;
-my_ratings(226) = 5;
-my_ratings(355)= 5;
+% my_ratings(7) = 3;
+% my_ratings(12)= 5;
+% my_ratings(54) = 4;
+% my_ratings(64)= 5;
+% my_ratings(66)= 3;
+% my_ratings(69) = 5;
+% my_ratings(183) = 4;
+% my_ratings(226) = 5;
+% my_ratings(355)= 5;
+
+%% Inserisco i rating di alcuni film
+%% ad esempio metto molti film di azioni e scredito i film romantici
+%% Let's pretend I like only action/violent movies
+my_ratings(56) = 5;
+my_ratings(68) = 5;
+my_ratings(76) = 4;
+my_ratings(95) = 1;
+my_ratings(100) = 4;
+my_ratings(127) = 4;
+my_ratings(170) = 1;
+my_ratings(179) = 5;
+my_ratings(195) = 5;
+my_ratings(195) = 1;
+my_ratings(198) = 4;
+my_ratings(201) = 4;
+my_ratings(207) = 2;
+my_ratings(275) = 1;
+my_ratings(274) = 1;
+my_ratings(282) = 4;
+my_ratings(283) = 1;
+my_ratings(313) = 2;
+my_ratings(418) = 1;
+my_ratings(419) = 2;
+my_ratings(477) = 1;
+my_ratings(740) = 2;
+
 
 fprintf('\n\nNew user ratings:\n');
 for i = 1:length(my_ratings)
@@ -195,7 +222,10 @@ initial_parameters = [X(:); Theta(:)];
 options = optimset('GradObj', 'on', 'MaxIter', 100);
 
 % Set Regularization
-lambda = 10;
+%% abbasso un pò il parametro di regolarizzazione per non avere under-fit
+%% riducendolo ho in effetti dei suggerimenti molto più coerenti con i rating che ho fornito come utente
+%% rating alti a film azione in input --> suggeriti molti film di azione/thriller/splatter
+lambda = 2; 
 theta = fmincg (@(t)(cofiCostFunc(t, Ynorm, R, num_users, num_movies, ...
                                 num_features, lambda)), ...
                 initial_parameters, options);
@@ -219,13 +249,20 @@ p = X * Theta';
 my_predictions = p(:,1) + Ymean;
 
 movieList = loadMovieList();
-
 [r, ix] = sort(my_predictions, 'descend');
+
 fprintf('\nTop recommendations for you:\n');
-for i=1:10
+i = 1;
+t = 1;
+while t <= 10 % mostro i top 10
     j = ix(i);
-    fprintf('Predicting rating %.1f for movie %s\n', my_predictions(j), ...
-            movieList{j});
+	i += 1;
+
+	%% filtro quei film che hanno ricevuto troppe poche recensioni per essere significativi (meno di 10 recensioni)
+	if sum(R(j, :), 2) >= 10
+		fprintf('Predicting rating %.1f for movie %s\n', my_predictions(j), movieList{j});
+		t += 1;
+	end
 end
 
 fprintf('\n\nOriginal ratings provided:\n');
